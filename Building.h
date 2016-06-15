@@ -46,7 +46,6 @@ class Building {
   void drawTrajectory(int* nodemap_, int w, int l, vector<pair<int, int>> way) const;
   void movePeople(void);
   unsigned int getDirection(double x, double y);
-  double getZoneLimNear(unsigned int x, unsigned int y, unsigned int main_dir );
   bool notEmpty(void) const;
   vector<pair<int, int>> findExit(const pair<int, int>& start, int* map, int W, int H);  
   

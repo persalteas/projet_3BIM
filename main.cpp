@@ -51,6 +51,7 @@ int main(int argc, char* argv[]){
         fen1.draw(wall);
       }
     }
+    fen1.draw(awareness);
     for (unsigned int j=0; j<walls_.size(); j++){
       fen1.draw(walls_[j]);
     }
