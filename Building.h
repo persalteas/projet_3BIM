@@ -47,7 +47,6 @@ class Building {
   void movePeople(void);
   unsigned int getDirection(double x, double y);
   double getZoneLimNear(unsigned int x, unsigned int y, unsigned int main_dir );
-  vector<Pedest> scanZone(double zone_xmin, double zone_xmax, double zone_ymin, double zone_ymax);
   bool notEmpty(void) const;
   vector<pair<int, int>> findExit(const pair<int, int>& start, int* map, int W, int H);  
   
