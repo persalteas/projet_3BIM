@@ -9,6 +9,13 @@ int Building::ZOOM = 15; // 15px = 1m = 1 case de tableau et 1 itération = 1s d
 
 //=========================== Constructors =============================
 
+int check_limits(int *v, int x, int y, int xmax, int ymax)
+{
+  if ((x >= 0 && x < xmax) and (y >= 0 && y < ymax))
+    return v[y * xmax + x];
+  return 0;
+}
+
 Building::Building(const string &filename)
 {
 
@@ -44,18 +51,19 @@ Building::Building(const string &filename)
   { // horizontaux
     for (int j = 0; j < width_; j++)
     {
-      if (map_[j + width_ * i] and not state)
+      if (map_[j + width_ * i] and not state) // A wall starts
       {
         start = j;
         state = true;
       }
-      if (state and (not map_[j + width_ * i] or j == width_ - 1))
+      if (state and (not map_[j + width_ * i] or j == width_ - 1)) // A wall stops
       {
-        if (j - 1 - start)
+        if (j - 1 - start and not(start == j and j == width_ - 1))
         {
           RectangleShape wall(Vector2f(Building::ZOOM * (j - start + (j == width_ - 1)), Building::ZOOM));
           wall.setPosition(Building::ZOOM * start, Building::ZOOM * i);
           walls_.push_back(wall);
+          // cout << "> horizontal wall found from " << start << " to " << j << " at y = " << i << endl;
         }
         state = false;
       }
@@ -72,11 +80,12 @@ Building::Building(const string &filename)
       }
       if (state and (not map_[j + width_ * i] or i == length_ - 1))
       {
-        if (i - 1 - start)
+        if (i - 1 - start and not(start == i and i == length_ - 1))
         {
           RectangleShape wall(Vector2f(Building::ZOOM, Building::ZOOM * (i - start + (i == length_ - 1))));
           wall.setPosition(Building::ZOOM * j, Building::ZOOM * start);
           walls_.push_back(wall);
+          // cout << "> vertical wall found from " << start << " to " << i << " at x = " << j << endl;
         }
         state = false;
       }
@@ -92,18 +101,19 @@ Building::Building(const string &filename)
   {
     for (int y = 0; y < length_; y++)
     {
+      // For each (x,y)...
+      if (not map_[y * width_ + x])
+        continue;
       s = 0;
-      for (int i = -1; i <= 1; i++)
-      {
-        for (int j = -1; j <= 1; j++)
-        {
-          if (x + i < 0 or y + j < 0 or x + i == width_ or y + j == length_)
-            continue;
-          if (map_[y * width_ + x] and (i + j) * (i + j) == 1)
-            s += map_[(y + j) * width_ + x + i];
-        }
-      }
-      if (s > 0 and s != 2)
+      if (check_limits(map_, x, y + 1, width_, length_) and not check_limits(map_, x, y - 1, width_, length_))
+        s += 1;
+      if (check_limits(map_, x, y - 1, width_, length_) and not check_limits(map_, x, y + 1, width_, length_))
+        s += 1;
+      if (check_limits(map_, x + 1, y, width_, length_) and not check_limits(map_, x - 1, y, width_, length_))
+        s += 1;
+      if (check_limits(map_, x - 1, y, width_, length_) and not check_limits(map_, x + 1, y, width_, length_))
+        s += 1;
+      if (s)
       {
         if (find(xborders_.begin(), xborders_.end(), x + 0.5) == xborders_.end())
           xborders_.push_back(x + 0.5);
@@ -198,15 +208,42 @@ Building::Building(const string &filename)
         nodemap_[(y + 1) * 2 * w + 2 * x - w] = 0;
     }
   }
-  will_tab = new int[w * l];
+
+  // Print the nodemap
+  cout << endl
+       << "======= Node map pour le flood-pathfinding: ===========" << endl
+       << endl;
+  for (int i = 0; i < w * l; ++i)
+  {
+    if (nodemap_[i])
+      cout << "# ";
+    else
+      cout << "  ";
+    if ((i + 1) % w == 0)
+    {
+      cout << endl;
+    }
+  }
+
+  // Fix what direction to take to exit each zone
+  will_tab = new int[w * l]; // (2xNwalls) x (2xNwalls)
   for (unsigned int i = 0; i < xmin_.size(); i++)
   {
+    // For each (x,y) in the nodemap...
     int Y = i % (yborders_.size() - 1);
     int X = i / int(yborders_.size() - 1);
     int x = 2 * X + 1;
     int y = 2 * Y + 1;
+
+    // ... Define (x,y) as the start point of a flood...
     pair<int, int> start(x, y);
+
+    // ... Get the path to exit...
     vector<pair<int, int>> path_to_exit = findExit(start, nodemap_, w, l);
+    // cout << "Path from " << start.first << ',' << start.second;
+    // cout << " -> (" << path_to_exit[1].first << ',' << path_to_exit[1].second << ')' << endl;
+
+    // ... See if the next zone is on top/bottom/right/left from you
     pair<int, int> a = path_to_exit[0];
     pair<int, int> b = path_to_exit[1];
     int dir = ((b.first - a.first) > 0) + 3 * ((b.first - a.first) < 0) + 2 * ((b.second - a.second) > 0);
@@ -220,8 +257,8 @@ Building::Building(const string &filename)
   cout << "placing pedestrians..." << endl;
 
   int N = Building::NPEDEST;
-  Pedest::RMIN = Pedest::RMIN + Pedest::MOOD;
-  Pedest::RMAX = Pedest::RMAX + Pedest::MOOD;
+  Pedest::RMIN = Pedest::RMIN + Pedest::MOOD; // Being angry makes you wider
+  Pedest::RMAX = Pedest::RMAX + Pedest::MOOD; // Being angry makes you wider
   people_ = new Pedest[N];
   for (int i = 0; i < N; i++)
   {
