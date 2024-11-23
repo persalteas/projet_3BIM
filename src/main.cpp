@@ -47,10 +47,9 @@ int main(int argc, char *argv[])
 
   string filename = "bmp/bimcave.bmp";
   unsigned int show_graphics = 1;
-  double fluidite = 20;
-  //  Pedest::MOOD = 1; //Essais
-  //  Pedest::EQSPEEDMIN = Pedest::EQSPEEDMIN/fluidite;
-  //  Pedest::EQSPEEDMAX = Pedest::EQSPEEDMAX/fluidite;
+  double fluidite = 5;
+  Pedest::EQSPEEDMIN = Pedest::EQSPEEDMIN / fluidite;
+  Pedest::EQSPEEDMAX = Pedest::EQSPEEDMAX / fluidite;
 
   switch (argc)
   {
@@ -58,9 +57,11 @@ int main(int argc, char *argv[])
   case 1: // Only the program name, prompt for parameters
   {
     cout << "./escape [ default ] path/to/file.bmp [ Npedest  model LimSpeed  mood  show? [ show-limits? ] ]" << endl;
+
     cout << "Number of pedestrians to put in: ";
     scanf("%d", &Building::NPEDEST);
     cout << endl;
+
     cout << "Model type:" << endl;
     cout << "1 = Pedestrians wait behind the obstacles" << endl;
     cout << "2 = Pedestrians move from the nearest obstacle" << endl;
@@ -68,15 +69,18 @@ int main(int argc, char *argv[])
     cout << "Model to use ? : ";
     scanf("%d", &Pedest::MODEL);
     cout << endl;
+
     cout << "Mood (between 0 and 1) : ";
     scanf("%lf", &Pedest::MOOD);
     cout << endl;
+
     float speed = 0;
     cout << "Average limit speed of pedestrians ? (in m/s): ";
     scanf("%f", &speed);
     cout << endl;
     Pedest::EQSPEEDMAX = (Pedest::MOOD + 1) * (speed + speed / 2) / fluidite;
     Pedest::EQSPEEDMIN = (Pedest::MOOD + 1) * (speed - speed / 2) / fluidite;
+
     cout << "Show the simulation? (0=No, 1=Yes): ";
     scanf("%d", &show_graphics);
     cout << endl;
@@ -86,6 +90,7 @@ int main(int argc, char *argv[])
       scanf("%d", &Building::SHOWWALLS);
       cout << endl;
     }
+
     break;
   }
 
@@ -169,7 +174,7 @@ int main(int argc, char *argv[])
   int success = EXIT_SUCCESS;
   switch (show_graphics)
   {
-  case 1:
+  case 1: // Update the graphics window to draw new positions
   {
     RenderWindow fen1(VideoMode(Building::ZOOM * Bataclan.width(), Building::ZOOM * Bataclan.length()), "Projet 3BIM", Style::Titlebar | Style::Close);
     fen1.setVerticalSyncEnabled(true);
@@ -202,22 +207,25 @@ int main(int argc, char *argv[])
     }
     break;
   }
-  case 0:
+  case 0: // Generate a frame and a final gif
   {
-    //~ success += system("if [ -f speed.txt]; then rm speed.txt; fi");
-    //~ success += system("if [ -f exit-time.txt]; then rm exit-time.txt; fi");
+    // clean the results folder
     success += system("if [ -f density-at-0000.ppm ]; then rm *.ppm; fi");
     success += system("if [ -d 'results' ]; then rm results/speed.txt results/exit-time.txt results/density.gif; else mkdir results; fi");
+
+    // run the simulation
     while (Bataclan.notEmpty())
     {
       Bataclan.movePeople();
       Bataclan.studyPeople(time);
       time++;
     }
+
+    // save results
     success += system("mv speed.txt results/speed.txt");
     success += system("mv exit-time.txt results/exit-time.txt");
     cout << "creating .gif..." << endl;
-    success += system("convert -delay 5 -loop 0 density-at-*.ppm density.gif");
+    success += system("magick -delay 5 -loop 0 density-at-*.ppm density.gif");
     success += system("mv density.gif results/density.gif");
     success += system("rm *.ppm");
   }
