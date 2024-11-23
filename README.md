@@ -1,34 +1,34 @@
----------------------------------------------------------------------
-             Simulation de piétons en environnement fermé      
----------------------------------------------------------------------
+# Simulation de piétons en environnement fermé      
 
-Dans le cadre du projet 3BIM, INSA-LYON, 2015-2016
+
+Initialement créé dans le cadre du projet 3BIM, INSA-LYON, 2015-2016
+
 L. Becquey - A. Cathignol - N. Mauvisseau - M. Simon
 
-========= INSTRUCTIONS ==========
-- Dépendances:
+# Installation
+## Dépendances
 Vous avez besoin de la bibliothèque SFML ( http://www.sfml-dev.org/index-fr.php )
-Sur Ubuntu, Linux Mint, Debian:
-  sudo apt-get install libsfml-dev
-Sur Fedora:
-  sudo dnf install SFML
-(Attention, rediriger manuellement les include de SFML vers /usr/include sur Fedora :/ )
+- Sur Ubuntu, Linux Mint, Debian: `sudo apt-get install libsfml-dev`
+- Sur Fedora: `sudo dnf install SFML` (Attention, rediriger manuellement les include de SFML vers /usr/include sur Fedora :/ )
+- Sur Mac: `brew install sfml`
 
+## Compilation
+Puis, depuis un terminal, lancez:
+```
+mkdir obj
+make
+```
 
-- Compilation:
+# Exécution:
+
 Depuis un terminal, lancez:
-  mkdir obj
-Puis
-  make
-  
-- Execution:
-Depuis un terminal, lancez:
-  ./escape default
-Ou, si vous voulez charger un batiment personnalisé:
-  ./escape 'path/to/building/plan.bmp'
-Ou, si vous souhaitez en plus régler vous même les paramètres:
-  ./escape   'path/to/building/plan.bmp'   Npiétons  modèle  VitesseLimite  mood  show_graphics show_limits
-  
+
+- Par défaut: `./escape default`
+- Ou, si vous voulez charger un batiment personnalisé: `./escape 'path/to/building/plan.bmp'` 
+- Ou, si vous souhaitez en plus régler vous même les paramètres: `./escape 'path/to/building/plan.bmp' Npiétons modèle  VitesseLimite  mood  show_graphics show_limits`
+- Pour choisir les paramètres via un prompt : `./escape`
+
+```
   'path/to/building/plan.bmp'       ==>    Lien vers une image plan de batiment
   Npiétons                          ==>    Le nombre d'individus à simuler dans ce batiment
   modèle                            ==>    La façon dont les piétons gèrent les obstacles
@@ -41,7 +41,7 @@ Ou, si vous souhaitez en plus régler vous même les paramètres:
   show_limits (si show_graphics=1)  ==>    1 pour afficher les limites de zone, 0 sinon
   
 Dans tous les cas, lance ./escape sans argument vous proposera de les préciser à la main.
-  
+```
 
-===== DESCRIPTION DU MODELE ============
+# Description du modèle
 https://www.overleaf.com/5401940bstyqz#/17178647/
