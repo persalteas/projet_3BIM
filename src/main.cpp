@@ -54,7 +54,8 @@ int main(int argc, char *argv[])
 
   switch (argc)
   {
-  case 1:
+
+  case 1: // Only the program name, prompt for parameters
   {
     cout << "./escape [ default ] path/to/file.bmp [ Npedest  model LimSpeed  mood  show? [ show-limits? ] ]" << endl;
     cout << "Number of pedestrians to put in: ";
@@ -87,7 +88,8 @@ int main(int argc, char *argv[])
     }
     break;
   }
-  case 2:
+
+  case 2: // A custom file to load
   {
     cout << "using default parameters..." << endl;
     string arg(argv[1]);
@@ -99,7 +101,7 @@ int main(int argc, char *argv[])
     break;
   }
 
-  case 7:
+  case 7: // All parameters but showLimits
   {
     filename = argv[1];
     cout << "using custom parameters..." << endl;
@@ -113,7 +115,8 @@ int main(int argc, char *argv[])
     show_graphics = atoi(argv[6]);
     break;
   }
-  case 8:
+
+  case 8: // All parameters
   {
     filename = argv[1];
     cout << "using custom parameters..." << endl;
@@ -128,11 +131,14 @@ int main(int argc, char *argv[])
     Building::SHOWWALLS = atoi(argv[7]);
   }
   }
+
   if (argc >= 3 and argc != 7 and argc != 8)
   {
     cout << "./escape [ default ] path/to/file.bmp [ Npedest  model  LimSpeed  mood  show? [ showLimits? ] ]" << endl;
     exit(-1);
   }
+
+  // ============= Build the building, Bob ==================
 
   Building Bataclan(filename);
 
