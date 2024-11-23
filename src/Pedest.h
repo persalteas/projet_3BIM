@@ -16,10 +16,11 @@ class Pedest {
  public :
   //================= Definition of static attributes ====================
 
-  static int RMAX;
-  static int RMIN;
-  static int EQSPEEDMIN;
-  static int EQSPEEDMAX;
+  static double RMAX;
+  static double RMIN;
+  static double MOOD;
+  static double EQSPEEDMIN;
+  static double EQSPEEDMAX;
   static int MODEL;
   static double ZONE_XMIN;
   static double ZONE_XMAX;
@@ -31,7 +32,6 @@ class Pedest {
   
   Pedest();
   Pedest(const int startX, const int startY, int zoom);
-  Pedest(const Pedest& model);
   void operator=(const Pedest& model);
   
   // =========================== Getters ===============================
@@ -42,6 +42,7 @@ class Pedest {
   inline double speed(void) const;
   inline double eqSpeed(void) const;
   inline float radius(void) const;
+  inline bool isOut(void) const;
   
   //=========================== Setters ================================
   
@@ -49,7 +50,8 @@ class Pedest {
   
   //=========================== Public Methods =========================
 
-  void move(double x_move , double y_move , double new_speed, int zoom);
+  void move(double x_move , double y_move , double new_speed, int zoom, int w, int l);
+  inline bool strictIsOut(int w, int l) const;
 
  protected :
   //=========================== Attributes =============================
@@ -61,6 +63,7 @@ class Pedest {
   CircleShape img_;
   double speed_;
   double eq_speed_;
+  bool is_out;
   
 };
 
@@ -73,5 +76,7 @@ inline CircleShape Pedest::img(void) const{ return img_; }
 inline double Pedest::speed() const { return speed_; }
 inline double Pedest::eqSpeed() const { return eq_speed_; }
 inline float Pedest::radius() const { return radius_; }
+inline bool Pedest::isOut() const { return is_out; }
+inline bool Pedest::strictIsOut(int w, int l) const { return (x_>w or x_<0 or y_<0 or y_>l); }
 
 #endif // Pedest_H__

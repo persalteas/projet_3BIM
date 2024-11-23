@@ -1,20 +1,33 @@
 CC = g++
-CFLAGS = -g -Wall -Wextra --std=c++11
 
-all: main
+UNAME := $(shell uname)
+CFLAGS = -g -Wall -Wextra --std=c++20
+LDFLAGS = -lsfml-graphics -lsfml-window -lsfml-system
+ifeq ($(UNAME), Linux)
+    CFLAGS += -DLINUX -O2
+    LDFLAGS += -lm
+else ifeq ($(UNAME), Darwin)
+    CFLAGS += -I/opt/homebrew/Cellar/sfml/2.6.2/include -DMACOS -O2
+    LDFLAGS = -L/opt/homebrew/Cellar/sfml/2.6.2/lib -lsfml-graphics -lsfml-window -lsfml-system -framework CoreFoundation
+else ifeq ($(UNAME), Windows)
+    CFLAGS += -DWINDOWS -O2
+    LDFLAGS += -lws2_32
+endif
 
-main: main.o Pedest.o Building.o
-	$(CC) $(CFLAGS) main.o Pedest.o Building.o -lsfml-graphics -lsfml-window -lsfml-system -o main
+all: escape
 
-main.o: main.cpp
-	$(CC) $(CFLAGS) -c main.cpp
+escape: obj/main.o obj/Pedest.o obj/Building.o
+	$(CC) $(CFLAGS) obj/main.o obj/Pedest.o obj/Building.o $(LDFLAGS)  -o escape
 
-Pedest.o: Pedest.cpp Pedest.h
-	$(CC) $(CFLAGS) -c Pedest.cpp
+obj/main.o: src/main.cpp
+	$(CC) $(CFLAGS) -c src/main.cpp -o obj/main.o
 
-Building.o: Building.cpp Building.h
-	$(CC) $(CFLAGS) -c Building.cpp
+obj/Pedest.o: src/Pedest.cpp src/Pedest.h
+	$(CC) $(CFLAGS) -c src/Pedest.cpp -o obj/Pedest.o
+
+obj/Building.o: src/Building.cpp src/Building.h
+	$(CC) $(CFLAGS) -c src/Building.cpp -o obj/Building.o
 
 clean:
-	rm *.o
+	rm obj/*.o
  

@@ -3,12 +3,14 @@
 
 //================= Definition of static attributes ====================
 
-int Building::NPEDEST = 1;
-int Building::ZOOM = 15; //15px = 1m = 1 case de tableau et 1 itération = 1s
+int Building::NPEDEST = 500;
+int Building::SHOWWALLS = 0;
+int Building::ZOOM = 15; //15px = 1m = 1 case de tableau et 1 itération = 1s du modèle, 0.01s réel
 
 //=========================== Constructors =============================
 
 Building::Building(const string& filename){
+  
   //...............................................Ouverture de l'image:
   Image Level;
   if (!Level.loadFromFile(filename))
@@ -29,7 +31,7 @@ Building::Building(const string& filename){
   }
   
   cout << filename << " successfully loaded." << endl;
-  cout << "Height: " << length_ << endl;
+  cout << "Height: " << length_ << endl;  
   cout << "Width: " << width_ << endl;
   
   //.............................................. recherche des murs :
@@ -51,7 +53,7 @@ Building::Building(const string& filename){
       }
     }
   }
-  for (int j=0; j<width_; j++){
+  for (int j=0; j<width_; j++){//verticaux
     for (int i=0; i<length_; i++){
       if (map_[j+width_*i] and not state){
         start = i;
@@ -71,8 +73,8 @@ Building::Building(const string& filename){
   //..........................................repérage des angles de mur
   
   int s;
-  xborders_.push_back(0);
-  yborders_.push_back(0);
+  xborders_.push_back(0.5);
+  yborders_.push_back(0.5);
   for (int x=0; x<width_; x++){
     for (int y=0; y<length_; y++){
       s = 0;
@@ -83,32 +85,36 @@ Building::Building(const string& filename){
         }
       }
       if ( s>0 and s!=2){
-        if(find(xborders_.begin(),xborders_.end(),x)==xborders_.end()) xborders_.push_back(x);
-        if(find(yborders_.begin(),yborders_.end(),y)==yborders_.end()) yborders_.push_back(y);
+        if(find(xborders_.begin(),xborders_.end(),x+0.5)==xborders_.end()) xborders_.push_back(x+0.5);
+        if(find(yborders_.begin(),yborders_.end(),y+0.5)==yborders_.end()) yborders_.push_back(y+0.5);
       }
     }
   }
   
   cout << "number of x edges: " << int(xborders_.size()) << " ( ";
   for (unsigned int i=0; i<xborders_.size(); i++){
-    RectangleShape wall(Vector2f(1,Building::ZOOM*length_));
-    wall.setPosition(Building::ZOOM*xborders_[i], 0);
-    wall.setFillColor(Color::Red);
-    walls_.push_back( wall );
+    if (Building::SHOWWALLS){
+      RectangleShape wall(Vector2f(1,Building::ZOOM*length_));
+      wall.setPosition(Building::ZOOM*xborders_[i], 0);
+      wall.setFillColor(Color::Red);
+      walls_.push_back( wall );
+    }
     cout << xborders_[i];
     cout << " ";
   }
   sort(yborders_.begin(), yborders_.end());
-  cout << ") mètres\nnumber of y edges: " << int(yborders_.size()) << " ( ";
+  cout << ") meters\nnumber of y edges: " << int(yborders_.size()) << " ( ";
   for (unsigned int i=0; i<yborders_.size(); i++){
-    RectangleShape wall(Vector2f(Building::ZOOM*width_,1));
-    wall.setPosition(0,Building::ZOOM*yborders_[i]);
-    wall.setFillColor(Color::Red);
-    walls_.push_back( wall );
+    if (Building::SHOWWALLS){
+      RectangleShape wall(Vector2f(Building::ZOOM*width_,1));
+      wall.setPosition(0,Building::ZOOM*yborders_[i]);
+      wall.setFillColor(Color::Red);
+      walls_.push_back( wall );
+    }
     cout << yborders_[i];
     cout << " ";
   }
-  cout << ") mètres\n";
+  cout << ") meters\n";
 
   //......................................... Recherche de la sortie :
   vector<int> xmin_;
@@ -135,7 +141,6 @@ Building::Building(const string& filename){
   } 
   for(unsigned int i=0; i<xmin_.size(); i++){
     vector<int> directions;
-    //~ cout<<"zone: "<<xmin_[i]<<','<<xmax_[i]<<','<<ymin_[i]<<','<<ymax_[i]<<" : ";
     if (not map_[ymin_[i]*width_+xmin_[i]+1]) directions.push_back(0);
     if (not map_[(1+ymin_[i])*width_+xmax_[i]]) directions.push_back(1);
     if (not map_[(ymax_[i])*width_+xmin_[i]+1]) directions.push_back(2);
@@ -144,13 +149,11 @@ Building::Building(const string& filename){
     int x = i/int(yborders_.size()-1);
     for(unsigned int j=0; j<directions.size(); j++){
       int a = directions[j];
-      //~ cout<<a<<" - ";
       if (a==0) nodemap_[(y+1)*2*w+2*x-2*w+1] = 0;
       if (a==1) nodemap_[(y+1)*2*w+2*x-w+2] = 0;
       if (a==2) nodemap_[(y+1)*2*w+2*x+1] = 0;
       if (a==3) nodemap_[(y+1)*2*w+2*x-w] = 0;
     }
-    //~ cout<<endl;
   }
   will_tab = new int[w*l];
   for(unsigned int i=0; i<xmin_.size(); i++){
@@ -165,20 +168,19 @@ Building::Building(const string& filename){
     int dir = ((b.first-a.first)>0)+3*((b.first-a.first)<0)+2*((b.second-a.second)>0);
     will_tab[Y*(xborders_.size()-1)+X] = dir;
   }
-  this->drawData( will_tab, xborders_.size()-1, yborders_.size()-1);
-  //~ this->drawMap( map_, width_, length_);
   delete[] nodemap_;
   nodemap_ = nullptr;
 
   //..............................................Création des piétons :
   cout << "placing pedestrians..." << endl;
+  
   int N = Building::NPEDEST;
+  Pedest::RMIN = Pedest::RMIN + Pedest::MOOD;
+  Pedest::RMAX = Pedest::RMAX + Pedest::MOOD;
   people_ = new Pedest[N];
   for (int i=0; i<N; i++){
-    //~ unsigned int posX = rand()%width_;
-    //~ unsigned int posY = rand()%length_;
-    unsigned int posX = 2;
-    unsigned int posY = 2;
+    unsigned int posX = rand()%width_;
+    unsigned int posY = rand()%length_;
     while (this->map(posX, posY)){
       posX = rand()%width_;
       posY = rand()%length_;
@@ -319,12 +321,10 @@ unsigned int Building::getDirection(double x, double y){
   //haut = 0
   //droite = 1
   //bas = 2
-  //gauche = 3S
+  //gauche = 3
   
-  //~ cout << l << ',' << k << ": ";
-  //~ cout << "x=" << x << " y=" << y << " - ";
-  //~ cout << will_tab[l*(xborders_.size()-1)+k] << endl;
   return will_tab[l*(xborders_.size()-1)+k];
+
 }
 
 void Building::movePeople(void){
@@ -332,7 +332,7 @@ void Building::movePeople(void){
   for (int i=0; i<Building::NPEDEST; i++){
     double x = people_[i].x();
     double y = people_[i].y();
-    if (x>width_ or x<0 or y<0 or y>length_) continue; //ne bouge plus ceux qui sont sortis
+    if (people_[i].isOut()) continue; //ne bouge plus ceux qui sont sortis
     double I = people_[i].speed();
     float r = people_[i].radius();
     
@@ -348,61 +348,85 @@ void Building::movePeople(void){
     double zone_xmax = 0;
     double zone_ymax = 0;
     
-    //Renvoie les coordonnées de la zone dans laquelle est ce piéton
-    unsigned int xmax = width_;
-    unsigned int xmin = 0;
+    //Renvoie les coordonnées de la zone dans laquelle est ce piéton (xmin ... ymax)
+    // et les coordonnées de la zone que le piéton perçoit (w_xmin ... w_ymax)
+    double xmax = width_+2.5; 
+    double xmin = -2.5;
+    double w_xmax = width_+2.5; //si les piétons sortent du batiment, ils voient plus loin que le mur
+    double w_xmin = -2.5;
     for (unsigned int i=0; i<xborders_.size(); i++){
-      unsigned int xlim = xborders_[i];
-      if (map_[width_*((int) y)+xlim]==0) continue;
+      double xlim = xborders_[i];
       if (xlim>xmin and xlim<x) xmin = xlim; //xmin plus grande frontière inférieure à x
       if (xlim<xmax and xlim>x) xmax = xlim; //xmax plus petite frontière supérieure à x
+      if (map_[width_*((int) y)+((int) xlim)]==0) continue; // si pas de mur à la hauteur du piéton cette limite compte pas
+      if (xlim>w_xmin and xlim<x) w_xmin = xlim; //xmin plus grande frontière inférieure à x
+      if (xlim<w_xmax and xlim>x) w_xmax = xlim; //xmax plus petite frontière supérieure à x
     }
-    unsigned int ymax = length_;
-    unsigned int ymin = 0;
+    double ymax = length_+2.5;
+    double ymin = -2.5;
+    double w_ymax = length_+2.5;
+    double w_ymin = -2.5;
     for (unsigned int i=0; i<yborders_.size(); i++){
-      unsigned int ylim = yborders_[i];
-      if (map_[width_*ylim+((int) x)]==0) continue;
+      double ylim = yborders_[i];
       if (ylim>ymin and ylim<y) ymin = ylim;
       if (ylim<ymax and ylim>y) ymax = ylim;
+      if (map_[width_*((int) ylim)+((int) x)]==0) continue;
+      if (ylim>w_ymin and ylim<y) w_ymin = ylim;
+      if (ylim<w_ymax and ylim>y) w_ymax = ylim;
     }
+    
     
     switch (main_dir){
       //la zone à scanner est entre toi et le prochain mur dans la 
       //direction ou tu vas      
       case 0: 
         zone_ymax = y;
-        zone_ymin = ymin+1;
+        zone_ymin = w_ymin+0.5;
         zone_xmin = x - r/Building::ZOOM - float(Pedest::RMAX)/Building::ZOOM;
         zone_xmax = x + r/Building::ZOOM + float(Pedest::RMAX)/Building::ZOOM;
         break;
       case 1:
         zone_xmin = x;
-        zone_xmax = xmax;
+        zone_xmax = w_xmax;
         zone_ymin = y - r/Building::ZOOM - float(Pedest::RMAX)/Building::ZOOM;
         zone_ymax = y + r/Building::ZOOM + float(Pedest::RMAX)/Building::ZOOM;
         break;
       case 2:
         zone_ymin = y;
-        zone_ymax = ymax;
+        zone_ymax = w_ymax;
         zone_xmin = x - r/Building::ZOOM - float(Pedest::RMAX)/Building::ZOOM;
         zone_xmax = x + r/Building::ZOOM + float(Pedest::RMAX)/Building::ZOOM;
         break;
       case 3:
         zone_xmax = x;
-        zone_xmin = xmin+1;
+        zone_xmin = w_xmin+0.5;
         zone_ymin = y - r/Building::ZOOM - float(Pedest::RMAX)/Building::ZOOM;
         zone_ymax = y + r/Building::ZOOM + float(Pedest::RMAX)/Building::ZOOM;
     }
     
-    //Affiche la zone scannée à l'écran
-    Pedest::ZONE_XMIN = zone_xmin;
-    Pedest::ZONE_XMAX = zone_xmax;
-    Pedest::ZONE_YMIN = zone_ymin;
-    Pedest::ZONE_YMAX = zone_ymax;
-    
+
+    // Débloquage piéton coincé dans le mur
+    double random_dir_x = 0;
+    double random_dir_y = 0;
     double space = (zone_xmax-zone_xmin-I)*Building::ZOOM - r;
-    space *= (zone_ymax-zone_ymin-I)*Building::ZOOM - r;
-    if (space < 0) I = 0;
+    if (space<0) random_dir_x = ((main_dir==3)-(main_dir==1))*0.1;
+    else space *= (zone_ymax-zone_ymin-I)*Building::ZOOM - r;
+    if (space<0) random_dir_y = ((main_dir==0)-(main_dir==2))*0.1;
+
+    
+    // Détection de murs dans la zone scannée
+    unsigned int walls_dir = 9;
+    if (main_dir!= 2 and ymax-0.5 < zone_ymax+0.3) { walls_dir = 0; } //remonte
+    if (main_dir!= 0 and walls_dir == 9 and ymin > zone_ymin-0.3) { walls_dir = 2; } //redescends
+    if (main_dir!= 1 and walls_dir == 9 and xmax < zone_xmax+0.3) { walls_dir = 3; } //à gauche
+    if (main_dir!= 3 and walls_dir == 9 and xmin > zone_xmin-0.3) { walls_dir = 1; } //à droite
+    
+    //Affiche la zone scannée à l'écran
+    //~ Pedest::ZONE_XMIN = zone_xmin;
+    //~ Pedest::ZONE_XMAX = zone_xmax;
+    //~ Pedest::ZONE_YMIN = zone_ymin;
+    //~ Pedest::ZONE_YMAX = zone_ymax;
+    
     
     // renvoie la liste des piétons dans la zone scannée
     vector<Pedest> obstacles;
@@ -415,9 +439,12 @@ void Building::movePeople(void){
     }
     
     // ========= plusieurs modèles d'adaptation aux piétons ============
+    
+    double x_col = 0;
+    double y_col = 0;
     if ( obstacles.size() ){
+      double dmin = 2*I;
       switch(Pedest::MODEL){
-        
         case 1:  //On freine et on attend derrière l'obstacle
           for (unsigned int i=0; i<obstacles.size(); i++){
             double distance = sqrt( pow(x-obstacles[i].x(),2) + pow(y-obstacles[i].y(),2) );
@@ -430,75 +457,178 @@ void Building::movePeople(void){
           break;
           
         case 2:  //On se décale de l'obstacle le plus proche
+          Pedest* nearest;
+          for (unsigned int i=0; i<obstacles.size(); i++){
+            double distance = sqrt(pow(x-obstacles[i].x(),2) + pow(y-obstacles[i].y(),2));
+            distance -= (r + obstacles[i].radius())/ (double) Building::ZOOM;
+            if (distance<dmin){
+              dmin = distance;
+              nearest = &obstacles[i];
+            }
+          }
+          if(dmin<2*I){
+            switch (main_dir){
+              case 0:
+                if (nearest->x()<x) x_col = (double) (rand()) / (double)(RAND_MAX);
+                else x_col = -(double) (rand()) / (double)(RAND_MAX);
+                y_col = -(double) (rand()) / (double)(RAND_MAX);
+                break;
+              case 1:
+                if (nearest->y()<y) y_col = (double) (rand()) / (double)(RAND_MAX);
+                else y_col = -(double) (rand()) / (double)(RAND_MAX);
+                x_col = (double) (rand()) / (double)(RAND_MAX);
+                break;
+              case 2:
+                if (nearest->x()<x) x_col = (double) (rand()) / (double)(RAND_MAX);
+                else x_col = -(double) (rand()) / (double)(RAND_MAX);
+                y_col = (double) (rand()) / (double)(RAND_MAX);
+                break;
+              case 3:
+                if (nearest->y()<y) y_col = (double) (rand()) / (double)(RAND_MAX);
+                else y_col = -(double) (rand()) / (double)(RAND_MAX);
+                x_col = -(double) (rand()) / (double)(RAND_MAX);
+                break;
+            }
+          }
           break;
           
-        case 3:  //On compte les obstacles à gauche et à droite dans la zone pour prendre tout en compte
+        case 3:  //On prend en compte la moyenne des positions des obstacles
+          dmin = I;
+          double x_obs = 0;
+          double y_obs = 0;
+          int count = 0;
+          for (unsigned int i=0; i<obstacles.size(); i++){
+            double distance = sqrt(pow(x-obstacles[i].x(),2) + pow(y-obstacles[i].y(),2));
+            distance -= (r + obstacles[i].radius())/ (double) Building::ZOOM;
+            if (distance<=dmin){
+              x_obs += obstacles[i].x();
+              y_obs += obstacles[i].y();
+              count++;
+            }
+          }
+          if (count>0) {
+            x_obs = x_obs/double(count);
+            y_obs= y_obs/double(count);
+            //int new_dir = getDirection(x_obs,y_obs);
+            //if (main_dir != new_dir) main_dir = new_dir;
+            switch (main_dir){
+              case 0:
+                if (x_obs<x) x_col = (double) (rand()) / (double)(RAND_MAX);
+                else x_col = -(double) (rand()) / (double)(RAND_MAX);
+                y_col = -(double) (rand()) / (double)(RAND_MAX);
+                break;
+              case 1:
+                if (y_obs<y) y_col = (double) (rand()) / (double)(RAND_MAX);
+                else y_col = -(double) (rand()) / (double)(RAND_MAX);
+                x_col = (double) (rand()) / (double)(RAND_MAX);
+                break;
+              case 2:
+                if (x_obs<x) x_col = (double) (rand()) / (double)(RAND_MAX);
+                else x_col = -(double) (rand()) / (double)(RAND_MAX);
+                y_col = (double) (rand()) / (double)(RAND_MAX);
+                break;
+              case 3:
+                if (y_obs<y) y_col = (double) (rand()) / (double)(RAND_MAX);
+                else y_col = -(double) (rand()) / (double)(RAND_MAX);
+                x_col = -(double) (rand()) / (double)(RAND_MAX);
+                break;
+            }
+          }
           break;
-          
       }
     }
+  
     
     // ===================== calcul du mouvement =======================
     
     double x_move, y_move;
     
     // termes de volonté
-    x_move = ( (main_dir==1)-(main_dir==3) )*I; 
-    y_move = ( (main_dir==2)-(main_dir==0) )*I;
-    
-    // terme d'évitement des piétons
-    x_move += 0;
-    y_move += 0;
+    x_move =  (main_dir==1)-(main_dir==3) ; 
+    y_move =  (main_dir==2)-(main_dir==0) ;
     
     // terme d'évitement des murs
-    x_move += 0;
-    y_move += 0;
+    x_move += ((walls_dir==1)-(walls_dir==3))*0.9;
+    y_move += ((walls_dir==2)-(walls_dir==0))*0.9;
+    
+    // terme d'évitement des piétons
+    x_move +=  x_col;
+    y_move +=  y_col;
     
     // terme aléatoire
-    x_move += 0;
-    y_move += 0;
+    x_move +=  random_dir_x;
+    y_move +=  random_dir_y;
     
-    people_[i].move( x_move , y_move , I, Building::ZOOM);
+    double hypothenuse = sqrt( pow(x_move,2) + pow(y_move,2) );
+    double x_final = x_move*I/hypothenuse;
+    double y_final = y_move*I/hypothenuse;
+    
+    people_[i].move( x_final , y_final , I, Building::ZOOM, width_, length_);
   }
 }
 
-
 bool Building::notEmpty(void) const{
   // teste si tous les piétons sont sortis ou non
-  int x;
-  int y;
   for (int i=0; i<Building::NPEDEST; i++){
-    x = people_[i].x();
-    y = people_[i].y();
-    if (not (x>=width_ or x<0 or y<0 or y>=length_)) return true;
+    if (not people_[i].isOut()) return true;
   }
   return false;
 }
 
-void Building::drawData(int* map, int w, int l) const {
-  cout << endl;
-  cout << "======= Directions à prendre: =======" << endl << endl;
-  for(int j=0; j<l; j++){
-    for(int i=0; i<w; i++){
-      if (map[i+w*j]==0) cout << "↑" << ' ';
-      if (map[i+w*j]==1) cout << "→" << ' ';
-      if (map[i+w*j]==2) cout << "↓" << ' ';
-      if (map[i+w*j]==3) cout << "←" << ' ';
-    }   
-    cout << endl;
+void Building::studyPeople(unsigned int time){
+  
+  int* density_ = new int[length_*width_];
+  for (int i=0; i<width_; i++){
+    for (int j=0; j<length_; j++){
+      density_[i+width_*j] = - map_[i+width_*j];
+    }
   }
-  cout << endl;
-}
-
-void Building::drawMap(int* map, int w, int l) const {
-  cout << endl;
-  for(int j=0; j<l; j++){
-    for(int i=0; i<w; i++){
-      char pixel = ' ';
-      if (map[ i+w*j] ==1 ) {pixel = '#';}
-      cout << pixel << " ";
-    }   
-    cout << endl;
+  ofstream fspeed, ftime;
+  fspeed.open("speed.txt", ios::out | ios::app);
+  for (int k=0; k<Building::NPEDEST; k++){
+    fspeed << people_[k].speed() << ' ';
+    if (find(gone_.begin(), gone_.end(), k) == gone_.end() and people_[k].isOut()){
+      gone_.push_back(k);
+      ftime.open("exit-time.txt", ios::out | ios::app);
+      ftime << "piéton " << k << " sorti en " << time << " secondes" << endl;
+      ftime.close();
+    }
+    if (not people_[k].strictIsOut(width_, length_)) density_[((int) people_[k].x())+width_*((int) people_[k].y())] ++;
   }
-  cout << endl;
+  fspeed << endl;
+  fspeed.close();
+  int max = *max_element(density_,density_+width_*length_);
+  unsigned char* data_ = new unsigned char[ width_*length_*3 ];
+  
+  for (int i=0; i<width_; i++){
+    for (int j=0; j<length_; j++){
+      if (density_[i+width_*j]==-1){
+        data_[(width_*j+i)*3] = (unsigned char) 255;
+        data_[(width_*j+i)*3+1] = (unsigned char) 255;
+        data_[(width_*j+i)*3+2] = (unsigned char) 255;
+      }
+      else {
+        data_[(width_*j+i)*3] = (unsigned char) (255 * density_[i+width_*j]/((double) max));
+        data_[(width_*j+i)*3+1] = (unsigned char) 0;
+        data_[(width_*j+i)*3+2] = (unsigned char) 0;
+      }
+    }
+  }
+  
+  string num = to_string(time);
+  if (time<10) num = "0"+num;
+  if (time<100) num = "0"+num;
+  if (time<1000) num = "0"+num;
+  string filename = "density-at-"+num+".ppm";
+  fstream f( filename, ios::out | ios::trunc | ios::binary);
+  f << "P6\n" << width_ << " " << length_ << "\n" << 255 << "\n";
+  f.write((char*)data_ , sizeof(char)*width_*length_*3);
+  f.close();
+  
+  
+  
+  delete[] data_;
+  delete[] density_;
+  data_ = nullptr;
+  density_ = nullptr;
 }
