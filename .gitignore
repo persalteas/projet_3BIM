@@ -3,5 +3,4 @@
 *.log
 *.gz
 *.aux
-main
-flood
+escape
