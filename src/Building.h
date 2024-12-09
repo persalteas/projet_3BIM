@@ -17,6 +17,7 @@ public:
   static int NPEDEST;
   static int ZOOM;
   static int SHOWWALLS;
+  static double RANDOM_WEIGHT;
 
   // =========================== Constructors ==========================
 
@@ -50,8 +51,8 @@ protected:
   unsigned int getDirection(double x, double y);
 
   //======================== Attributes =================================
-  int length_;
-  int width_;
+  int length_; // hauteur de l'image (en cases ou pixels)
+  int width_;  // largeur de l'image (en cases ou pixels)
   int *map_;
   int *will_tab;
   vector<RectangleShape> walls_;

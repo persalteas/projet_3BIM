@@ -199,8 +199,8 @@ int main(int argc, char *argv[])
       if ((double)(clock() - start) * fluidite / CLOCKS_PER_SEC > 1)
       {
         // une itération du calcul = 1/fluiditième de seconde
-        update_graphics(fen1, Bataclan, walls_);
         Bataclan.movePeople();
+        update_graphics(fen1, Bataclan, walls_);
         start = clock();
         time++;
       }

@@ -5,6 +5,7 @@
 
 int Building::NPEDEST = 50;
 int Building::SHOWWALLS = 0;
+double Building::RANDOM_WEIGHT = 1.0;
 int Building::ZOOM = 15; // 15px = 1m = 1 case de tableau et 1 itération = 1s du modèle, 0.01s réel
 
 //=========================== Constructors =============================
@@ -456,6 +457,8 @@ void Building::movePeople(void)
 
   for (int i = 0; i < Building::NPEDEST; i++)
   {
+    // Itérer sur les piétons.
+
     double x = people_[i].x();
     double y = people_[i].y();
     if (people_[i].isOut())
@@ -475,26 +478,29 @@ void Building::movePeople(void)
     double zone_xmax = 0;
     double zone_ymax = 0;
 
-    // Renvoie les coordonnées de la zone dans laquelle est ce piéton (xmin ... ymax)
-    //  et les coordonnées de la zone que le piéton perçoit (w_xmin ... w_ymax)
+    // Renvoie les coordonnées de la zone que le piéton perçoit (zone_xmin ... zone_ymax)
     double xmax = width_ + 2.5;
     double xmin = -2.5;
     double w_xmax = width_ + 2.5; // si les piétons sortent du batiment, ils voient plus loin que le mur
     double w_xmin = -2.5;
     for (unsigned int i = 0; i < xborders_.size(); i++)
     {
+      // on itère sur les murs et on resserre itérativement
+      // xmin et xmax jusqu'à encadrer x
       double xlim = xborders_[i];
       if (xlim > xmin and xlim < x)
         xmin = xlim; // xmin plus grande frontière inférieure à x
       if (xlim < xmax and xlim > x)
         xmax = xlim; // xmax plus petite frontière supérieure à x
       if (map_[width_ * ((int)y) + ((int)xlim)] == 0)
-        continue; // si pas de mur à la hauteur du piéton cette limite compte pas
+        continue; // si pas de mur à la hauteur du piéton (xlim, y) cette limite ne compte pas, on passe à la suivante
+      // s'il y a bien un mur en (xlim, y), on met à jour w_xmin et w_xmax
       if (xlim > w_xmin and xlim < x)
-        w_xmin = xlim; // xmin plus grande frontière inférieure à x
+        w_xmin = xlim; // w_xmin plus grande frontière avec mur inférieure à x
       if (xlim < w_xmax and xlim > x)
-        w_xmax = xlim; // xmax plus petite frontière supérieure à x
+        w_xmax = xlim; // w_xmax plus petite frontière avec mur supérieure à x
     }
+    // Même principe en y
     double ymax = length_ + 2.5;
     double ymin = -2.5;
     double w_ymax = length_ + 2.5;
@@ -513,26 +519,30 @@ void Building::movePeople(void)
       if (ylim < w_ymax and ylim > y)
         w_ymax = ylim;
     }
+    // Maintenant, w_xmin, w_xmax, w_ylim et w_ymax sont les coordonnées des murs les plus proches de (x, y)
 
     switch (main_dir)
     {
-    // la zone à scanner est entre toi et le prochain mur dans la
-    // direction ou tu vas
-    case 0:
-      zone_ymax = y;
-      zone_ymin = w_ymin + 0.5;
-      zone_xmin = x - r / Building::ZOOM - float(Pedest::RMAX) / Building::ZOOM;
-      zone_xmax = x + r / Building::ZOOM + float(Pedest::RMAX) / Building::ZOOM;
+    // haut = 0
+    // droite = 1
+    // bas = 2
+    // gauche = 3
+    // la zone à scanner est entre toi et le prochain mur dans la direction ou tu vas
+    case 0:                                                                      // il va vers le haut
+      zone_ymax = y;                                                             // en bas, consience limitée par lui même
+      zone_ymin = w_ymin + 0.5;                                                  // en haut, conscience limitée par le premier mur + épaisseur du mur
+      zone_xmin = x - r / Building::ZOOM - float(Pedest::RMAX) / Building::ZOOM; // à gauche, son rayon
+      zone_xmax = x + r / Building::ZOOM + float(Pedest::RMAX) / Building::ZOOM; // à droite, son rayon
       break;
-    case 1:
-      zone_xmin = x;
-      zone_xmax = w_xmax;
+    case 1:                     // il va vers la droite
+      zone_xmin = x;            // à gauche, lui même
+      zone_xmax = w_xmax - 0.5; // à droite, le premier mur
       zone_ymin = y - r / Building::ZOOM - float(Pedest::RMAX) / Building::ZOOM;
       zone_ymax = y + r / Building::ZOOM + float(Pedest::RMAX) / Building::ZOOM;
       break;
-    case 2:
-      zone_ymin = y;
-      zone_ymax = w_ymax;
+    case 2:                     // il va en bas
+      zone_ymin = y;            // en haut, conscience limitée
+      zone_ymax = w_ymax - 0.5; // en bas, conscience limitée par le prochain mur
       zone_xmin = x - r / Building::ZOOM - float(Pedest::RMAX) / Building::ZOOM;
       zone_xmax = x + r / Building::ZOOM + float(Pedest::RMAX) / Building::ZOOM;
       break;
@@ -542,42 +552,46 @@ void Building::movePeople(void)
       zone_ymin = y - r / Building::ZOOM - float(Pedest::RMAX) / Building::ZOOM;
       zone_ymax = y + r / Building::ZOOM + float(Pedest::RMAX) / Building::ZOOM;
     }
+    // Maintenant, zone_* délimitent la zone de conscience
+
+    // ======= Processus de lutte contre les zones serrées ===============
 
     // Débloquage piéton coincé dans le mur
     double random_dir_x = 0;
     double random_dir_y = 0;
     double space = (zone_xmax - zone_xmin - I) * Building::ZOOM - r;
+    // Si la vitesse est grande devant la place disponible, freine un peu
     if (space < 0)
-      random_dir_x = ((main_dir == 3) - (main_dir == 1)) * 0.1;
-    else
-      space *= (zone_ymax - zone_ymin - I) * Building::ZOOM - r;
+      random_dir_x = ((main_dir == 3) - (main_dir == 1)) * 0.2;
+    space = (zone_ymax - zone_ymin - I) * Building::ZOOM - r;
     if (space < 0)
-      random_dir_y = ((main_dir == 0) - (main_dir == 2)) * 0.1;
+      random_dir_y = ((main_dir == 0) - (main_dir == 2)) * 0.2;
 
-    // Détection de murs dans la zone scannée
+    // Détection de proximité des murs dans la zone scannée
     unsigned int walls_dir = 9;
-    if (main_dir != 2 and ymax - 0.5 < zone_ymax + 0.3)
+    if (main_dir != 2 and walls_dir == 9 and ymax < zone_ymax + 0.5)
     {
-      walls_dir = 0;
-    } // remonte
-    if (main_dir != 0 and walls_dir == 9 and ymin > zone_ymin - 0.3)
+      // il ne va pas en bas, et il y a un mur proche, en bas
+      walls_dir = 0; // remonte
+    }
+    if (main_dir != 0 and walls_dir == 9 and ymin > zone_ymin - 0.5)
     {
-      walls_dir = 2;
-    } // redescends
-    if (main_dir != 1 and walls_dir == 9 and xmax < zone_xmax + 0.3)
+      walls_dir = 2; // redescends
+    }
+    if (main_dir != 1 and walls_dir == 9 and xmax < zone_xmax + 0.5)
     {
-      walls_dir = 3;
-    } // à gauche
-    if (main_dir != 3 and walls_dir == 9 and xmin > zone_xmin - 0.3)
+      walls_dir = 3; // à gauche
+    }
+    if (main_dir != 3 and walls_dir == 9 and xmin > zone_xmin - 0.5)
     {
-      walls_dir = 1;
-    } // à droite
+      walls_dir = 1; // à droite
+    }
 
     // Affiche la zone scannée à l'écran
-    //~ Pedest::ZONE_XMIN = zone_xmin;
-    //~ Pedest::ZONE_XMAX = zone_xmax;
-    //~ Pedest::ZONE_YMIN = zone_ymin;
-    //~ Pedest::ZONE_YMAX = zone_ymax;
+    // Pedest::ZONE_XMIN = zone_xmin;
+    // Pedest::ZONE_XMAX = zone_xmax;
+    // Pedest::ZONE_YMIN = zone_ymin;
+    // Pedest::ZONE_YMAX = zone_ymax;
 
     // renvoie la liste des piétons dans la zone scannée
     vector<Pedest> obstacles;
@@ -723,26 +737,42 @@ void Building::movePeople(void)
     // ===================== calcul du mouvement =======================
 
     double x_move, y_move;
+    // cout << '(' << x << ',' << y << "), I = " << I << "\t";
 
     // termes de volonté
     x_move = (main_dir == 1) - (main_dir == 3);
     y_move = (main_dir == 2) - (main_dir == 0);
+    // cout << '(' << x_move << ',' << y_move << ") direction + ";
 
     // terme d'évitement des murs
-    x_move += ((walls_dir == 1) - (walls_dir == 3)) * 0.9;
-    y_move += ((walls_dir == 2) - (walls_dir == 0)) * 0.9;
+    x_move += ((walls_dir == 1) - (walls_dir == 3)) * 0.5;
+    y_move += ((walls_dir == 2) - (walls_dir == 0)) * 0.5;
+    // cout << '(' << ((walls_dir == 1) - (walls_dir == 3)) * 0.5 << ',' << ((walls_dir == 2) - (walls_dir == 0)) * 0.5 << ") murs + ";
 
     // terme d'évitement des piétons
     x_move += x_col;
     y_move += y_col;
+    // cout << '(' << x_col << ',' << y_col << ") piétons + ";
 
     // terme aléatoire
-    x_move += random_dir_x;
-    y_move += random_dir_y;
+    x_move += random_dir_x * Building::RANDOM_WEIGHT;
+    y_move += random_dir_y * Building::RANDOM_WEIGHT;
+    // cout << '(' << random_dir_x << ',' << random_dir_y << ") zones serrées = \t(" << x_move << ',' << y_move << ')';
 
     double hypothenuse = sqrt(pow(x_move, 2) + pow(y_move, 2));
     double x_final = x_move * I / hypothenuse;
     double y_final = y_move * I / hypothenuse;
+    // cout << "\t -> (" << x_final << ',' << y_final << ')' << endl;
+
+    // Tronquer pour ne pas pénétrer les murs
+    if (x_final < 0 and (x - w_xmin) < -x_final)
+      x_final = 0.9 * (x - w_xmin);
+    if (x_final > 0 and (w_xmax - x) < x_final)
+      x_final = 0.9 * (w_xmax - x);
+    if (y_final < 0 and (y - w_ymin) < -y_final)
+      y_final = 0.9 * (y - w_ymin);
+    if (y_final > 0 and (w_ymax - y) < y_final)
+      y_final = 0.9 * (w_ymax - y);
 
     people_[i].move(x_final, y_final, I, Building::ZOOM, width_, length_);
   }
